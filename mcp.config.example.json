@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "copilot-review-hub": {
+      "command": "node",
+      "args": ["/path/to/copilot-review-hub/dist/index.js"],
+      "env": {
+        "PORT": "3000",
+        "REVIEW_HUB_URL": "http://localhost:3000"
+      }
+    }
+  }
+}

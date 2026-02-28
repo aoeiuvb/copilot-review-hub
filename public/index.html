@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Copilot Review Hub</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span>Review Hub</span>
+      </div>
+      <nav>
+        <button class="nav-btn active" data-view="reviews">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+          Reviews
+          <span class="badge" id="pending-badge"></span>
+        </button>
+        <button class="nav-btn" data-view="settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          Settings
+        </button>
+      </nav>
+      <div class="status-dot" id="ws-status" title="Disconnected"></div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main">
+      <!-- Reviews view -->
+      <section id="view-reviews" class="view active">
+        <header class="view-header">
+          <h1>Review Queue</h1>
+          <div class="filter-bar">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="pending">Pending</button>
+            <button class="filter-btn" data-filter="approved">Approved</button>
+            <button class="filter-btn" data-filter="rejected">Rejected</button>
+          </div>
+        </header>
+        <div id="review-list" class="review-list">
+          <div class="empty-state" id="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <p>No reviews yet. Copilot will submit reviews here.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings view -->
+      <section id="view-settings" class="view">
+        <header class="view-header">
+          <h1>Settings</h1>
+        </header>
+        <div class="settings-card">
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Auto-Approve</label>
+              <p class="setting-desc">Automatically approve incoming review requests without manual intervention.</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="auto-approve-toggle" />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="setting-row" id="auto-approve-delay-row">
+            <div class="setting-info">
+              <label class="setting-label" for="auto-approve-delay">Auto-Approve Delay (seconds)</label>
+              <p class="setting-desc">Wait this many seconds before auto-approving. 0 = immediately.</p>
+            </div>
+            <input type="number" id="auto-approve-delay" class="number-input" min="0" max="3600" value="0" />
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Browser Notifications</label>
+              <p class="setting-desc">Show desktop notifications when new reviews arrive.</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="notifications-toggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <button class="btn btn-primary" id="save-settings">Save Settings</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Review detail modal -->
+  <div class="modal-overlay" id="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-title"></h2>
+          <span class="status-badge" id="modal-status"></span>
+        </div>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div class="modal-meta" id="modal-meta"></div>
+      <pre class="code-block" id="modal-content"></pre>
+      <div id="modal-comments-section" class="modal-comments-section">
+        <p class="comment-label">Review Comments</p>
+        <p id="modal-comments" class="comment-text"></p>
+      </div>
+      <div class="modal-actions" id="modal-actions">
+        <textarea id="action-comments" class="comment-input" placeholder="Optional comments…" rows="3"></textarea>
+        <div class="action-btns">
+          <button class="btn btn-danger" id="btn-reject">Reject</button>
+          <button class="btn btn-success" id="btn-approve">Approve</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
