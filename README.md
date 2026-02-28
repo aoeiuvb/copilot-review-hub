@@ -29,6 +29,22 @@
   - **Internationalization**: Fully localized interface (English/Chinese).
 - **Rich Context**: Supports Markdown rendering for review summaries and detailed descriptions.
 
+### 📸 Dashboard Preview
+
+*(The following data is generated for demonstration purposes)*
+
+| Dark Mode | Light Mode |
+| --- | --- |
+| ![Dark Mode](docs/images/dashboard-preview.png) | ![Light Mode](docs/images/dashboard-preview-light.png) |
+
+**Interface Overview:**
+- **Left Sidebar**: Groups review requests by "Task" (e.g., "User Authentication", "Payment Gateway").
+  - 🟢 **Approved**: Tasks that have passed review.
+  - 🔴 **Needs Revision**: Tasks that require AI adjustment.
+  - 🟡 **Pending**: Tasks waiting for your input.
+- **Main Area**: Displays the review details, including Markdown-rendered plans, code snippets, and questions.
+- **Action Bar**: "Approve" or "Request Changes" with comments.
+
 ### 🛠 Prerequisites
 
 Before you begin, ensure you have the following installed:
@@ -117,11 +133,11 @@ To let GitHub Copilot use this tool, you need to configure the MCP server in VS 
 2.  **Chat with Copilot**: In Copilot Chat (Agent Mode), ask it to perform a complex task.
 3.  **Trigger Review**: When Copilot reaches a critical step, it will call `request_expert_review`.
 4.  **Review on Dashboard**:
-    - Open [http://localhost:3456](http://localhost:3456) in your browser.
-    - You will see a "Pending" review request.
+    - 浏览器打开 [http://localhost:3456](http://localhost:3456)。
+    - 您会看到一个状态为 "Pending" 的评审请求。
 5.  **Provide Feedback**:
-    - Click **"Approve"** to let Copilot continue.
-    - Click **"Request Changes"** (with comments) to make Copilot fix issues and retry.
+    - 点击 **"Approve" (通过)** 让 Copilot 继续执行。
+    - 点击 **"Request Changes" (请求修改)** 并输入建议，让 Copilot 修正问题并重试。
 
 ---
 
@@ -130,7 +146,7 @@ To let GitHub Copilot use this tool, you need to configure the MCP server in VS 
 
 **Copilot Review Hub** 是一个强大的 Model Context Protocol (MCP) 服务器，旨在为 AI 编程智能体（如 GitHub Copilot）引入“人机协同（Human-in-the-Loop）”工作流。它提供了一个基于 Web 的仪表盘，允许人类专家在 AI 智能体继续执行之前，审查、批准或要求修改其生成的代码或计划。
 
-### 🌟 为什么选择 Copilot Review Hub？
+### �� 为什么选择 Copilot Review Hub？
 
 - **💰 节省 Copilot 次数**：通过一次性清晰、结构化的需求描述与确认，大幅减少与 AI 的反复对话轮次。
 - **🎯 精准解决问题**：在执行前验证方案，确保 AI 专注于解决特定的单个问题，避免跑偏。
@@ -142,13 +158,29 @@ To let GitHub Copilot use this tool, you need to configure the MCP server in VS 
 - **阻塞式评审流**：AI 智能体在发起评审后会暂停执行，直到收到人类评审员的反馈。
 - **🔔 系统通知**：当有新的评审请求到达时，即时接收桌面通知。
 - **🚀 自动启动与无冲突**：MCP 服务随 Copilot 自动启动。智能端口管理（默认 3456）确保多个 VS Code 窗口可以共享同一个仪表盘实例，不会发生端口冲突。
-- **📂 集中会话管理**：来自不同 Copilot 对话的所有评审会话都会聚合在一个地方，便于统一管理。
+- **�� 集中会话管理**：来自不同 Copilot 对话的所有评审会话都会聚合在一个地方，便于统一管理。
 - **现代化 Web 仪表盘**：
   - 基于 **Next.js 16** 和 **Tailwind CSS** 构建。
   - **实时更新**：评审请求即时显示。
   - **深色/浅色模式**：无缝切换主题。
   - **国际化支持**：完整的中英文界面支持。
 - **丰富的内容展示**：支持 Markdown 渲染，清晰展示评审摘要和详细描述。
+
+### 📸 仪表盘预览
+
+*(下图展示了生成的测试数据效果)*
+
+| 深色模式 | 浅色模式 |
+| --- | --- |
+| ![Dark Mode](docs/images/dashboard-preview.png) | ![Light Mode](docs/images/dashboard-preview-light.png) |
+
+**界面概览：**
+- **左侧边栏**：按“任务”分组显示评审请求（例如“用户认证模块”、“支付网关”）。
+  - 🟢 **Approved (已通过)**：已完成并通过评审的任务。
+  - 🔴 **Needs Revision (需修改)**：需要 AI 进行调整的任务。
+  - 🟡 **Pending (待评审)**：等待您处理的任务。
+- **主区域**：显示详细的评审内容，支持 Markdown 渲染的计划、代码片段和问题。
+- **操作栏**：提供“Approve (通过)”或“Request Changes (请求修改)”按钮。
 
 ### 🛠 前置要求
 
@@ -228,7 +260,7 @@ npm run dev
 > - 如果您不是直接打开的项目根目录，建议使用 `build/index.js` 文件的**绝对路径**。
 
 3.  **重启 MCP 服务器**：
-    - 打开命令面板 (`Ctrl+Shift+P` / `Cmd+Shift+P`)。
+    - 打开命令面板 (`Ctrl+Shift+P` / `Cmd+Shift+P`).
     - Run **"MCP: Restart Servers"** (or reload the window).
     - Verify it's running via **"MCP: List Servers"**.
 
