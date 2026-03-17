@@ -1,6 +1,10 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+import ReactMarkdown, { Components } from 'react-markdown'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import oneDark from 'react-syntax-highlighter/dist/esm/styles/prism/one-dark'
+import oneLight from 'react-syntax-highlighter/dist/esm/styles/prism/one-light'
 import {
   ChevronRight,
   ChevronDown,
@@ -22,7 +26,7 @@ import {
   BellOff,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useReviewSessions, submitFeedback, ReviewSession } from '@/hooks/use-review-sessions'
+import { useReviewSessions, submitFeedback } from '@/hooks/use-review-sessions'
 import { useToast } from '@/hooks/use-toast'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN, enUS } from 'date-fns/locale'
@@ -40,7 +44,6 @@ interface ReviewItemDetail {
   summary: string
   description: string
   reviewComment?: string
-  rawSession?: ReviewSession
 }
 
 interface ReviewTask {
@@ -51,6 +54,17 @@ interface ReviewTask {
   isExpanded?: boolean
   lastTimestamp: number
 }
+
+interface DetailPanelProps {
+  task: ReviewTask | null
+  selectedItemId: string | null
+  theme: Theme
+  lang: Language
+  onSelectItem: (itemId: string | null) => void
+  onSubmit: (taskId: string, itemId: string, action: 'approve' | 'reject', comment: string) => void
+}
+
+const selectableInputTypes = new Set(['text', 'search', 'url', 'tel', 'password'])
 
 // 国际化文案
 const i18n = {
@@ -283,75 +297,93 @@ const MarkdownRenderer: React.FC<{
   theme: Theme
 }> = ({ content, theme }) => {
   const isDark = theme === 'dark'
-  
-  // 简单的markdown解析
-  const parseMarkdown = (text: string) => {
-    if (!text) return null;
-    const lines = text.split('\n')
-    return lines.map((line, index) => {
-      // 标题
-      if (line.startsWith('### ')) {
-        return <h4 key={index} className="text-sm font-semibold mt-3 mb-1">{line.slice(4)}</h4>
+
+  // react-markdown may nest text under multiple elements; flatten it before handing code to the highlighter.
+  const extractTextContent = (node: React.ReactNode): string => {
+    return React.Children.toArray(node).map((child) => {
+      if (typeof child === 'string' || typeof child === 'number') {
+        return String(child)
       }
-      if (line.startsWith('## ')) {
-        return <h3 key={index} className="text-base font-semibold mt-4 mb-2">{line.slice(3)}</h3>
+
+      if (React.isValidElement<{ children?: React.ReactNode }>(child)) {
+        return extractTextContent(child.props.children)
       }
-      if (line.startsWith('# ')) {
-        return <h2 key={index} className="text-lg font-bold mt-4 mb-2">{line.slice(2)}</h2>
-      }
-      // 列表
-      if (line.startsWith('- ') || line.startsWith('* ')) {
-        return (
-          <li key={index} className="ml-4 text-sm leading-relaxed list-disc">
-            {renderInline(line.slice(2))}
-          </li>
-        )
-      }
-      // 代码块
-      if (line.startsWith('`') && line.endsWith('`')) {
-        return (
-          <code key={index} className={cn(
-            'px-1.5 py-0.5 rounded text-xs font-mono break-all whitespace-pre-wrap',
-            isDark ? 'bg-gray-800 text-cyan-400' : 'bg-gray-200 text-cyan-600'
-          )}>
-            {line.slice(1, -1)}
-          </code>
-        )
-      }
-      // 空行
-      if (line.trim() === '') {
-        return <div key={index} className="h-2" />
-      }
-      // 普通文本
-      return <p key={index} className="text-sm leading-relaxed">{renderInline(line)}</p>
-    })
+
+      return ''
+    }).join('')
   }
-  
-  // 行内样式
-  const renderInline = (text: string) => {
-    const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g)
-    return parts.map((part, i) => {
-      if (part.startsWith('**') && part.endsWith('**')) {
-        return <strong key={i}>{part.slice(2, -2)}</strong>
-      }
-      if (part.startsWith('*') && part.endsWith('*')) {
-        return <em key={i}>{part.slice(1, -1)}</em>
-      }
-      if (part.startsWith('`') && part.endsWith('`')) {
-        return (
-          <code key={i} className={cn(
-            'px-1 py-0.5 rounded text-xs font-mono break-all whitespace-pre-wrap',
-            isDark ? 'bg-gray-800 text-cyan-400' : 'bg-gray-200 text-cyan-600'
-          )}>
-            {part.slice(1, -1)}
-          </code>
-        )
-      }
-      return part
-    })
+
+  const extractCodeBlock = (node: React.ReactNode) => {
+    const firstChild = React.Children.toArray(node)[0]
+    const className = React.isValidElement<{ className?: string }>(firstChild)
+      ? firstChild.props.className
+      : undefined
+
+    return {
+      code: extractTextContent(node).replace(/\n$/, ''),
+      language: className?.match(/language-([\w-]+)/)?.[1] || 'text',
+    }
   }
-  
-  return <div className={cn('prose-sm', isDark ? 'text-gray-300' : 'text-gray-600')}>{parseMarkdown(content)}</div>
+
+  const renderInlineCode: Components['code'] = ({ children }) => {
+    return (
+      <code className={cn(
+        'inline rounded px-1.5 py-0.5 text-xs font-mono align-baseline',
+        isDark ? 'bg-gray-800 text-cyan-400' : 'bg-gray-200 text-cyan-600'
+      )}>
+        {children}
+      </code>
+    )
+  }
+
+  const components: Components = {
+    h1: ({ children }) => <h2 className="text-lg font-bold mt-4 mb-2 first:mt-0">{children}</h2>,
+    h2: ({ children }) => <h3 className="text-base font-semibold mt-4 mb-2 first:mt-0">{children}</h3>,
+    h3: ({ children }) => <h4 className="text-sm font-semibold mt-3 mb-1.5 first:mt-0">{children}</h4>,
+    p: ({ children }) => <p className="text-sm leading-relaxed my-2 first:mt-0 last:mb-0">{children}</p>,
+    ul: ({ children }) => <ul className="my-2 ml-5 list-disc space-y-1">{children}</ul>,
+    ol: ({ children }) => <ol className="my-2 ml-5 list-decimal space-y-1">{children}</ol>,
+    li: ({ children }) => <li className="text-sm leading-relaxed">{children}</li>,
+    blockquote: ({ children }) => (
+      <blockquote className={cn(
+        'my-3 border-l-2 pl-3 text-sm italic',
+        isDark ? 'border-cyan-500/40 text-gray-400' : 'border-cyan-600/40 text-gray-500'
+      )}>
+        {children}
+      </blockquote>
+    ),
+    pre: ({ children }) => (
+      <SyntaxHighlighter
+        PreTag="div"
+        language={extractCodeBlock(children).language}
+        style={isDark ? oneDark : oneLight}
+        wrapLongLines
+        customStyle={{
+          margin: '0.75rem 0',
+          borderRadius: '0.75rem',
+          border: isDark ? '1px solid #3b4048' : '1px solid #d0d7de',
+          background: isDark ? '#282c34' : '#f6f8fa',
+          color: isDark ? '#abb2bf' : '#24292f',
+          boxShadow: isDark ? '0 1px 3px rgba(0, 0, 0, 0.25)' : '0 1px 3px rgba(148, 163, 184, 0.18)',
+          padding: '0.875rem 1rem',
+          fontSize: '0.75rem',
+          lineHeight: '1.5rem',
+        }}
+        codeTagProps={{ className: 'font-mono' }}
+      >
+        {extractCodeBlock(children).code}
+      </SyntaxHighlighter>
+    ),
+    code: renderInlineCode,
+  }
+
+  if (!content) return null
+
+  return (
+    <div className={cn('space-y-1', isDark ? 'text-gray-300' : 'text-gray-600')}>
+      <ReactMarkdown components={components}>{content}</ReactMarkdown>
+    </div>
+  )
 }
 
 // Review项组件（左侧列表）
@@ -504,15 +536,8 @@ const ReviewItemDetailCard: React.FC<{
   const tConfig = themeConfig[theme]
   const isDark = theme === 'dark'
   const config = statusConfig[item.status]
-  const internalRef = useRef<HTMLDivElement>(null)
 
-  // 合并内部 ref 和外部传入的 ref 回调
-  const setRef = (element: HTMLDivElement | null) => {
-    internalRef.current = element
-    if (cardRef) {
-      cardRef(element)
-    }
-  }
+  const setCardRef = (element: HTMLDivElement | null) => cardRef?.(element)
 
   const handleSubmit = (action: 'approve' | 'reject') => {
     // 打回修改时必须输入审核意见
@@ -537,7 +562,7 @@ const ReviewItemDetailCard: React.FC<{
 
   return (
     <div
-      ref={setRef}
+      ref={setCardRef}
       className={cn(
         'rounded-xl border transition-all duration-200',
         config.borderColor[theme],
@@ -677,15 +702,14 @@ const ReviewItemDetailCard: React.FC<{
 }
 
 // 详情面板组件
-const DetailPanel: React.FC<{
-  task: ReviewTask | null
-  selectedItemId: string | null
-  theme: Theme
-  lang: Language
-  onClose: () => void
-  onSelectItem: (itemId: string | null) => void
-  onSubmit: (taskId: string, itemId: string, action: 'approve' | 'reject', comment: string) => void
-}> = ({ task, selectedItemId, theme, lang, onClose, onSelectItem, onSubmit }) => {
+const DetailPanel = React.memo(({
+  task,
+  selectedItemId,
+  theme,
+  lang,
+  onSelectItem,
+  onSubmit,
+}: DetailPanelProps) => {
   const tConfig = themeConfig[theme]
   const isDark = theme === 'dark'
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -852,7 +876,9 @@ const DetailPanel: React.FC<{
       )}
     </div>
   )
-}
+})
+
+DetailPanel.displayName = 'DetailPanel'
 
 // Header组件
 const Header: React.FC<{
@@ -992,11 +1018,35 @@ export default function Home() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [notificationEnabled, setNotificationEnabled] = useState(true)
+  const [selectionReleaseTick, setSelectionReleaseTick] = useState(0)
   const prevPendingCountRef = useRef(0)
+  const isTextSelectionActiveRef = useRef(false)
   const tConfig = themeConfig[theme]
   
   const { sessions, isLoading, mutate } = useReviewSessions()
   const { toast } = useToast()
+
+  const hasActiveTextSelection = () => {
+    if (typeof window === 'undefined') return false
+
+    const selection = window.getSelection()
+    if (selection && !selection.isCollapsed && selection.toString().length > 0) {
+      return true
+    }
+
+    const activeElement = document.activeElement
+    if (activeElement instanceof HTMLTextAreaElement) {
+      return (activeElement.selectionEnd ?? 0) > (activeElement.selectionStart ?? 0)
+    }
+
+    if (activeElement instanceof HTMLInputElement) {
+      if (selectableInputTypes.has(activeElement.type)) {
+        return (activeElement.selectionEnd ?? 0) > (activeElement.selectionStart ?? 0)
+      }
+    }
+
+    return false
+  }
 
   // Load settings from localStorage
   useEffect(() => {
@@ -1011,6 +1061,32 @@ export default function Home() {
     } else {
       // Default to true if not set
       setNotificationEnabled(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    const updateSelectionState = () => {
+      const hasSelection = hasActiveTextSelection()
+      const hadSelection = isTextSelectionActiveRef.current
+
+      isTextSelectionActiveRef.current = hasSelection
+
+      // Delay UI resync until the user releases the selection so polling cannot interrupt copy gestures.
+      if (hadSelection && !hasSelection) {
+        setSelectionReleaseTick(prev => prev + 1)
+      }
+    }
+
+    document.addEventListener('selectionchange', updateSelectionState)
+    document.addEventListener('mouseup', updateSelectionState)
+    document.addEventListener('keyup', updateSelectionState)
+    window.addEventListener('blur', updateSelectionState)
+
+    return () => {
+      document.removeEventListener('selectionchange', updateSelectionState)
+      document.removeEventListener('mouseup', updateSelectionState)
+      document.removeEventListener('keyup', updateSelectionState)
+      window.removeEventListener('blur', updateSelectionState)
     }
   }, [])
 
@@ -1045,12 +1121,9 @@ export default function Home() {
 
   // Effect for checking new tasks and sending notification
   useEffect(() => {
-    // Wait until tasks are loaded to avoid initial notification
-    if (tasks.length === 0) return
+    if (sessions.length === 0) return
 
-    const currentPendingCount = tasks.reduce((acc, task) => {
-      return acc + task.items.filter(item => item.status === 'pending').length
-    }, 0)
+    const currentPendingCount = sessions.filter(session => session.status === 'pending').length
 
     // Load previous count from localStorage on first run
     if (prevPendingCountRef.current === 0) {
@@ -1075,23 +1148,16 @@ export default function Home() {
       
       notification.onclick = () => {
         window.focus()
-        
-        // Find the first task with pending items
-        const firstPendingTask = tasks.find(task => task.items.some(item => item.status === 'pending'))
-        if (firstPendingTask) {
-          // Find the first pending item in that task
-          const firstPendingItem = firstPendingTask.items.find(item => item.status === 'pending')
-          if (firstPendingItem) {
-            // Expand the task if needed
-            if (!firstPendingTask.isExpanded) {
-              setTasks(prev => prev.map(t => 
-                t.id === firstPendingTask.id ? { ...t, isExpanded: true } : t
-              ))
-            }
-            // Select the task and item
-            setSelectedTaskId(firstPendingTask.id)
-            setSelectedItemId(firstPendingItem.id)
-          }
+
+        const firstPendingSession = sessions.find(session => session.status === 'pending')
+        if (firstPendingSession) {
+          const taskId = firstPendingSession.taskTitle || firstPendingSession.taskId
+
+          setTasks(prev => prev.map(task =>
+            task.id === taskId ? { ...task, isExpanded: true } : task
+          ))
+          setSelectedTaskId(taskId)
+          setSelectedItemId(firstPendingSession.sessionId)
         }
       }
     }
@@ -1101,11 +1167,12 @@ export default function Home() {
       prevPendingCountRef.current = currentPendingCount
       localStorage.setItem('review-center-pending-count', currentPendingCount.toString())
     }
-  }, [tasks, notificationEnabled])
+  }, [sessions, notificationEnabled])
   
   // 将 API 返回的 sessions 转换为 UI 需要的 ReviewTask 结构
   useEffect(() => {
-    if (isLoading) return
+    // Keep rendering stable while the user is copying text from the detail panel.
+    if (isLoading || isTextSelectionActiveRef.current) return
 
     const groupedTasks: Record<string, ReviewTask> = {}
 
@@ -1126,13 +1193,14 @@ export default function Home() {
         summary: session.summary,
         description: session.details,
         reviewComment: session.feedback,
-        rawSession: session
       }
 
-      if (!groupedTasks[session.taskId]) {
-        groupedTasks[session.taskId] = {
-          id: session.taskId,
-          title: session.taskTitle || session.taskId,
+      const groupKey = session.taskTitle || session.taskId
+
+      if (!groupedTasks[groupKey]) {
+        groupedTasks[groupKey] = {
+          id: groupKey,
+          title: groupKey,
           lastActiveTime: formatDistanceToNow(session.updatedAt, { 
             addSuffix: true, 
             locale: lang === 'zh' ? zhCN : enUS 
@@ -1143,16 +1211,16 @@ export default function Home() {
         }
       } else {
         // 更新最后活跃时间
-        if (session.updatedAt > groupedTasks[session.taskId].lastTimestamp) {
-          groupedTasks[session.taskId].lastTimestamp = session.updatedAt
-          groupedTasks[session.taskId].lastActiveTime = formatDistanceToNow(session.updatedAt, { 
+        if (session.updatedAt > groupedTasks[groupKey].lastTimestamp) {
+          groupedTasks[groupKey].lastTimestamp = session.updatedAt
+          groupedTasks[groupKey].lastActiveTime = formatDistanceToNow(session.updatedAt, { 
             addSuffix: true, 
             locale: lang === 'zh' ? zhCN : enUS 
           })
         }
       }
 
-      groupedTasks[session.taskId].items.push(item)
+      groupedTasks[groupKey].items.push(item)
     })
 
     // 转换为数组并排序
@@ -1167,44 +1235,44 @@ export default function Home() {
       }))
     })
 
-  }, [sessions, lang, isLoading])
+  }, [sessions, lang, isLoading, selectionReleaseTick])
 
   const selectedTask = tasks.find(t => t.id === selectedTaskId) || null
 
-  const toggleTask = (id: string) => {
-    setTasks(tasks.map(task =>
+  const toggleTask = useCallback((id: string) => {
+    setTasks(prev => prev.map(task =>
       task.id === id ? { ...task, isExpanded: !task.isExpanded } : task
     ))
-  }
+  }, [])
 
-  const expandAll = () => setTasks(tasks.map(task => ({ ...task, isExpanded: true })))
-  const collapseAll = () => setTasks(tasks.map(task => ({ ...task, isExpanded: false })))
+  const expandAll = useCallback(() => {
+    setTasks(prev => prev.map(task => ({ ...task, isExpanded: true })))
+  }, [])
 
-  const handleSelectTask = (taskId: string) => {
+  const collapseAll = useCallback(() => {
+    setTasks(prev => prev.map(task => ({ ...task, isExpanded: false })))
+  }, [])
+
+  const handleSelectTask = useCallback((taskId: string) => {
     setSelectedTaskId(taskId)
     setSelectedItemId(null) // 清空选中的审核项
-  }
+  }, [])
 
-  const handleSelectItem = (taskId: string, itemId: string) => {
+  const handleSelectItem = useCallback((taskId: string, itemId: string) => {
     setSelectedTaskId(taskId)
     setSelectedItemId(itemId)
-  }
+  }, [])
 
-  const handleSelectPending = (taskId: string, itemId: string) => {
+  const handleSelectPending = useCallback((taskId: string, itemId: string) => {
     setSelectedTaskId(taskId)
     setSelectedItemId(itemId)
-  }
+  }, [])
 
-  const handleDetailSelectItem = (itemId: string | null) => {
+  const handleDetailSelectItem = useCallback((itemId: string | null) => {
     setSelectedItemId(itemId)
-  }
+  }, [])
 
-  const handleCloseDetail = () => {
-    setSelectedTaskId(null)
-    setSelectedItemId(null)
-  }
-
-  const handleSubmit = async (taskId: string, itemId: string, action: 'approve' | 'reject', comment: string) => {
+  const handleSubmit = useCallback(async (taskId: string, itemId: string, action: 'approve' | 'reject', comment: string) => {
     try {
       const status = action === 'approve' ? 'approved' : 'needs_revision'
       await submitFeedback(itemId, status, comment)
@@ -1220,7 +1288,7 @@ export default function Home() {
         variant: "destructive",
       })
     }
-  }
+  }, [lang, mutate, toast])
 
   return (
     <div className={cn('h-screen flex flex-col overflow-hidden transition-colors duration-300', tConfig.pageBg)}>
@@ -1281,7 +1349,6 @@ export default function Home() {
           selectedItemId={selectedItemId}
           theme={theme}
           lang={lang}
-          onClose={handleCloseDetail}
           onSelectItem={handleDetailSelectItem}
           onSubmit={handleSubmit}
         />

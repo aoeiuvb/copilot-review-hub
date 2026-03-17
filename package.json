@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build && tsc -p tsconfig.server.json",
+    "build": "node scripts/run-build.cjs",
     "start": "NODE_ENV=production node build/index.js",
     "lint": "next lint"
   },
@@ -96,5 +96,6 @@
     "tailwindcss": "^4.0.0",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5"
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610"
 }

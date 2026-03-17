@@ -18,7 +18,7 @@ export async function startReviewerServer() {
     console.log('Next.js app prepared.');
 
     const app = express();
-    const PORT = 3456;
+    const PORT = Number.parseInt(process.env.PORT || '3456', 10);
 
     // Middleware
     app.use(express.json());

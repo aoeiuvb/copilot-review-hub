@@ -14,24 +14,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Z.ai Code Scaffold - AI-Powered Development",
-  description: "Modern Next.js scaffold optimized for AI-powered development with Z.ai. Built with TypeScript, Tailwind CSS, and shadcn/ui.",
-  keywords: ["Z.ai", "Next.js", "TypeScript", "Tailwind CSS", "shadcn/ui", "AI development", "React"],
-  authors: [{ name: "Z.ai Team" }],
-  icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
-  },
+  title: "Review Center | Copilot Review Hub",
+  description: "Review Center dashboard for Copilot Review Hub, with real-time expert review sessions, status tracking, and feedback workflows.",
+  keywords: ["Copilot Review Hub", "Review Center", "Next.js", "TypeScript", "expert review", "MCP"],
+  authors: [{ name: "Copilot Review Hub" }],
   openGraph: {
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
-    url: "https://chat.z.ai",
-    siteName: "Z.ai",
+    title: "Review Center | Copilot Review Hub",
+    description: "Real-time expert review dashboard for Copilot Review Hub.",
+    url: "http://localhost:3456",
+    siteName: "Copilot Review Hub",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
+    title: "Review Center | Copilot Review Hub",
+    description: "Real-time expert review dashboard for Copilot Review Hub.",
   },
 };
 
